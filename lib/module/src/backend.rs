@@ -5,6 +5,7 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::marker;
 use DataContext;
+use DebugContext;
 use Linkage;
 use ModuleNamespace;
 use ModuleResult;
@@ -57,6 +58,9 @@ where
     /// Declare a data object.
     fn declare_data(&mut self, name: &str, linkage: Linkage, writable: bool);
 
+    /// Declare a debug section.
+    fn declare_debug(&mut self, name: &str);
+
     /// Define a function, producing the function body from the given `Context`.
     ///
     /// Functions must be declared before being defined.
@@ -97,6 +101,16 @@ where
         what: ir::GlobalValue,
         addend: binemit::Addend,
     );
+
+    /// Define a debug section.
+    ///
+    /// Debug sections must be declared before being defined.
+    fn define_debug(
+        &mut self,
+        name: &str,
+        debug_ctx: DebugContext,
+        namespace: &ModuleNamespace<Self>,
+    ) -> ModuleResult<()>;
 
     /// Perform all outstanding relocations on the given function. This requires all `Local`
     /// and `Export` entities referenced to be defined.

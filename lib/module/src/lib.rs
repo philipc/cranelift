@@ -42,12 +42,15 @@ extern crate log;
 
 mod backend;
 mod data_context;
+mod debug_context;
 mod module;
 
 pub use backend::Backend;
 pub use data_context::{DataContext, DataDescription, Init};
+pub use debug_context::{DebugContext, DebugReloc};
 pub use module::{
-    DataId, FuncId, FuncOrDataId, Linkage, Module, ModuleError, ModuleNamespace, ModuleResult,
+    DataId, DebugId, DebugRelocation, FuncId, FuncOrDataId, Linkage, Module, ModuleError,
+    ModuleNamespace, ModuleResult,
 };
 
 /// This replaces `std` in builds with `core`.

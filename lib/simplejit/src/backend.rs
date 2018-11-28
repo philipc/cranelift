@@ -4,7 +4,8 @@ use cranelift_codegen::binemit::{Addend, CodeOffset, NullTrapSink, Reloc, RelocS
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::{self, ir, settings};
 use cranelift_module::{
-    Backend, DataContext, DataDescription, Init, Linkage, ModuleNamespace, ModuleResult,
+    Backend, DataContext, DataDescription, DebugContext, Init, Linkage, ModuleNamespace,
+    ModuleResult,
 };
 use cranelift_native;
 use libc;
@@ -167,6 +168,10 @@ impl<'simple_jit_backend> Backend for SimpleJITBackend {
         // Nothing to do.
     }
 
+    fn declare_debug(&mut self, _name: &str) {
+        unimplemented!();
+    }
+
     fn define_function(
         &mut self,
         name: &str,
@@ -291,6 +296,15 @@ impl<'simple_jit_backend> Backend for SimpleJITBackend {
         unimplemented!();
     }
 
+    fn define_debug(
+        &mut self,
+        _name: &str,
+        _debug_ctx: DebugContext,
+        _namespace: &ModuleNamespace<Self>,
+    ) -> ModuleResult<()> {
+        unimplemented!();
+    }
+
     fn finalize_function(
         &mut self,
         func: &Self::CompiledFunction,
@@ -314,12 +328,14 @@ impl<'simple_jit_backend> Backend for SimpleJITBackend {
                     Some(compiled) => compiled.code,
                     None => self.lookup_symbol(name_str),
                 }
-            } else {
+            } else if namespace.is_data(name) {
                 let (def, name_str, _writable) = namespace.get_data_definition(&name);
                 match def {
                     Some(compiled) => compiled.storage,
                     None => self.lookup_symbol(name_str),
                 }
+            } else {
+                panic!("invalid ExternalName {}", name);
             };
             // TODO: Handle overflow.
             let what = unsafe { base.offset(addend as isize) };
@@ -379,12 +395,14 @@ impl<'simple_jit_backend> Backend for SimpleJITBackend {
                     Some(compiled) => compiled.code,
                     None => self.lookup_symbol(name_str),
                 }
-            } else {
+            } else if namespace.is_data(name) {
                 let (def, name_str, _writable) = namespace.get_data_definition(&name);
                 match def {
                     Some(compiled) => compiled.storage,
                     None => self.lookup_symbol(name_str),
                 }
+            } else {
+                panic!("invalid ExternalName {}", name);
             };
             // TODO: Handle overflow.
             let what = unsafe { base.offset(addend as isize) };

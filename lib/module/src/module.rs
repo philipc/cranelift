@@ -8,6 +8,7 @@
 use cranelift_codegen::entity::{EntityRef, PrimaryMap};
 use cranelift_codegen::{binemit, ir, isa, CodegenError, Context};
 use data_context::DataContext;
+use debug_context::DebugContext;
 use std::borrow::ToOwned;
 use std::collections::HashMap;
 use std::string::String;
@@ -39,6 +40,21 @@ impl From<DataId> for ir::ExternalName {
     fn from(id: DataId) -> Self {
         ir::ExternalName::User {
             namespace: 1,
+            index: id.0,
+        }
+    }
+}
+
+/// A debug section identifier for use in the `Module` interface.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DebugId(u32);
+entity_impl!(DebugId, "debugid");
+
+/// Debug section identifiers are namespace 2 in `ir::ExternalName`
+impl From<DebugId> for ir::ExternalName {
+    fn from(id: DebugId) -> Self {
+        ir::ExternalName::User {
+            namespace: 2,
             index: id.0,
         }
     }
@@ -93,19 +109,23 @@ impl Linkage {
 
 /// A declared name may refer to either a function or data declaration
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+// FIXME: rename?
 pub enum FuncOrDataId {
     /// When it's a FuncId
     Func(FuncId),
     /// When it's a DataId
     Data(DataId),
+    /// When it's a DebugId
+    Debug(DebugId),
 }
 
-/// Mapping to `ir::ExternalName` is trivial based on the `FuncId` and `DataId` mapping.
+/// Mapping to `ir::ExternalName` is a trivial map of the individual variants.
 impl From<FuncOrDataId> for ir::ExternalName {
     fn from(id: FuncOrDataId) -> Self {
         match id {
             FuncOrDataId::Func(funcid) => Self::from(funcid),
             FuncOrDataId::Data(dataid) => Self::from(dataid),
+            FuncOrDataId::Debug(debugid) => Self::from(debugid),
         }
     }
 }
@@ -115,6 +135,18 @@ pub struct FunctionDeclaration {
     pub name: String,
     pub linkage: Linkage,
     pub signature: ir::Signature,
+}
+
+/// A relocation in a debug section.
+pub struct DebugRelocation {
+    /// The offset of the relocation within the debug section.
+    pub offset: u64,
+    /// The size in bytes of the relocation value.
+    pub size: u8,
+    /// The declaration being referenced.
+    pub target: FuncOrDataId,
+    /// The addend for the relocation.
+    pub addend: i32,
 }
 
 /// Error messages for all `Module` and `Backend` methods
@@ -211,6 +243,17 @@ where
     }
 }
 
+/// Information about a debug section which can be accessed.
+pub struct DebugDeclaration {
+    pub name: String,
+}
+
+/// A debug section belonging to a `Module`.
+struct ModuleDebug {
+    /// The debug section declaration.
+    decl: DebugDeclaration,
+}
+
 /// The functions and data objects belonging to a module.
 struct ModuleContents<B>
 where
@@ -218,6 +261,7 @@ where
 {
     functions: PrimaryMap<FuncId, ModuleFunction<B>>,
     data_objects: PrimaryMap<DataId, ModuleData<B>>,
+    debug_sections: PrimaryMap<DebugId, ModuleDebug>,
 }
 
 impl<B> ModuleContents<B>
@@ -244,6 +288,16 @@ where
             panic!("unexpected ExternalName kind {}", name)
         }
     }
+
+    fn get_debug_info(&self, name: &ir::ExternalName) -> &ModuleDebug {
+        if let ir::ExternalName::User { namespace, index } = *name {
+            debug_assert_eq!(namespace, 2);
+            let data = DebugId::new(index as usize);
+            &self.debug_sections[data]
+        } else {
+            panic!("unexpected ExternalName kind {}", name)
+        }
+    }
 }
 
 /// This provides a view to the state of a module which allows `ir::ExternalName`s to be translated
@@ -264,9 +318,14 @@ where
         &self.contents.get_function_info(name).decl
     }
 
-    /// Get the `DataDeclaration` for the function named by `name`.
+    /// Get the `DataDeclaration` for the data object named by `name`.
     pub fn get_data_decl(&self, name: &ir::ExternalName) -> &DataDeclaration {
         &self.contents.get_data_info(name).decl
+    }
+
+    /// Get the `DebugDeclaration` for the debug section named by `name`.
+    pub fn get_debug_decl(&self, name: &ir::ExternalName) -> &DebugDeclaration {
+        &self.contents.get_debug_info(name).decl
     }
 
     /// Get the definition for the function named by `name`, along with its name
@@ -307,10 +366,28 @@ where
         (info.compiled.as_ref(), &info.decl.name, info.decl.writable)
     }
 
-    /// Return whether `name` names a function, rather than a data object.
+    /// Return whether `name` names a function.
     pub fn is_function(&self, name: &ir::ExternalName) -> bool {
         if let ir::ExternalName::User { namespace, .. } = *name {
             namespace == 0
+        } else {
+            panic!("unexpected ExternalName kind {}", name)
+        }
+    }
+
+    /// Return whether `name` names a data object.
+    pub fn is_data(&self, name: &ir::ExternalName) -> bool {
+        if let ir::ExternalName::User { namespace, .. } = *name {
+            namespace == 1
+        } else {
+            panic!("unexpected ExternalName kind {}", name)
+        }
+    }
+
+    /// Return whether `name` names a debug section.
+    pub fn is_debug(&self, name: &ir::ExternalName) -> bool {
+        if let ir::ExternalName::User { namespace, .. } = *name {
+            namespace == 2
         } else {
             panic!("unexpected ExternalName kind {}", name)
         }
@@ -340,6 +417,7 @@ where
             contents: ModuleContents {
                 functions: PrimaryMap::new(),
                 data_objects: PrimaryMap::new(),
+                debug_sections: PrimaryMap::new(),
             },
             functions_to_finalize: Vec::new(),
             data_objects_to_finalize: Vec::new(),
@@ -410,9 +488,7 @@ where
                     self.backend.declare_function(name, existing.decl.linkage);
                     Ok(id)
                 }
-                FuncOrDataId::Data(..) => {
-                    Err(ModuleError::IncompatibleDeclaration(name.to_owned()))
-                }
+                _ => Err(ModuleError::IncompatibleDeclaration(name.to_owned())),
             },
             Vacant(entry) => {
                 let id = self.contents.functions.push(ModuleFunction {
@@ -449,9 +525,7 @@ where
                     Ok(id)
                 }
 
-                FuncOrDataId::Func(..) => {
-                    Err(ModuleError::IncompatibleDeclaration(name.to_owned()))
-                }
+                _ => Err(ModuleError::IncompatibleDeclaration(name.to_owned())),
             },
             Vacant(entry) => {
                 let id = self.contents.data_objects.push(ModuleData {
@@ -464,6 +538,32 @@ where
                 });
                 entry.insert(FuncOrDataId::Data(id));
                 self.backend.declare_data(name, linkage, writable);
+                Ok(id)
+            }
+        }
+    }
+
+    /// Declare a debug section in this module.
+    pub fn declare_debug(&mut self, name: &str) -> ModuleResult<DebugId> {
+        // TODO: Can we avoid allocating names so often?
+        use std::collections::hash_map::Entry::*;
+        match self.names.entry(name.to_owned()) {
+            Occupied(entry) => match *entry.get() {
+                FuncOrDataId::Debug(id) => {
+                    self.backend.declare_debug(name);
+                    Ok(id)
+                }
+
+                _ => Err(ModuleError::IncompatibleDeclaration(name.to_owned())),
+            },
+            Vacant(entry) => {
+                let id = self.contents.debug_sections.push(ModuleDebug {
+                    decl: DebugDeclaration {
+                        name: name.to_owned(),
+                    },
+                });
+                entry.insert(FuncOrDataId::Debug(id));
+                self.backend.declare_debug(name);
                 Ok(id)
             }
         }
@@ -562,6 +662,18 @@ where
         self.contents.data_objects[data].compiled = compiled;
         self.data_objects_to_finalize.push(data);
         Ok(())
+    }
+
+    /// Define a debug section.
+    pub fn define_debug(&mut self, debug: DebugId, debug_ctx: DebugContext) -> ModuleResult<()> {
+        let info = &self.contents.debug_sections[debug];
+        self.backend.define_debug(
+            &info.decl.name,
+            debug_ctx,
+            &ModuleNamespace::<B> {
+                contents: &self.contents,
+            },
+        )
     }
 
     /// Write the address of `what` into the data for `data` at `offset`. `data` must refer to a

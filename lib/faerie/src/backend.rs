@@ -5,8 +5,8 @@ use cranelift_codegen::binemit::{Addend, CodeOffset, NullTrapSink, Reloc, RelocS
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::{self, binemit, ir};
 use cranelift_module::{
-    Backend, DataContext, DataDescription, Init, Linkage, ModuleError, ModuleNamespace,
-    ModuleResult,
+    Backend, DataContext, DataDescription, DebugContext, Init, Linkage, ModuleError,
+    ModuleNamespace, ModuleResult,
 };
 use faerie;
 use failure::Error;
@@ -145,6 +145,12 @@ impl Backend for FaerieBackend {
             .expect("inconsistent declarations");
     }
 
+    fn declare_debug(&mut self, name: &str) {
+        self.artifact
+            .declare(name, faerie::Decl::DebugSection)
+            .expect("inconsistent declarations");
+    }
+
     fn define_function(
         &mut self,
         name: &str,
@@ -272,6 +278,44 @@ impl Backend for FaerieBackend {
         unimplemented!()
     }
 
+    fn define_debug(
+        &mut self,
+        name: &str,
+        debug_ctx: DebugContext,
+        namespace: &ModuleNamespace<Self>,
+    ) -> ModuleResult<()> {
+        for reloc in debug_ctx.relocs {
+            let to = if namespace.is_function(&reloc.name) {
+                &namespace.get_function_decl(&reloc.name).name
+            } else if namespace.is_data(&reloc.name) {
+                &namespace.get_data_decl(&reloc.name).name
+            } else if namespace.is_debug(&reloc.name) {
+                &namespace.get_debug_decl(&reloc.name).name
+            } else {
+                panic!("invalid ExternalName {}", &reloc.name);
+            };
+            let addend = reloc.addend as i32;
+            debug_assert!(i64::from(addend) == reloc.addend);
+            self.artifact
+                .link_with(
+                    faerie::Link {
+                        from: name,
+                        to,
+                        at: u64::from(reloc.offset),
+                    },
+                    faerie::Reloc::Debug {
+                        size: reloc.size,
+                        addend,
+                    },
+                ).expect("faerie relocation error");
+        }
+
+        self.artifact
+            .define(name, debug_ctx.data)
+            .expect("inconsistent declaration");
+        Ok(())
+    }
+
     fn finalize_function(
         &mut self,
         _func: &FaerieCompiledFunction,
@@ -381,8 +425,10 @@ impl<'a> RelocSink for FaerieRelocSink<'a> {
             ir::ExternalName::User { .. } => {
                 if self.namespace.is_function(name) {
                     self.namespace.get_function_decl(name).name.clone()
-                } else {
+                } else if self.namespace.is_data(name) {
                     self.namespace.get_data_decl(name).name.clone()
+                } else {
+                    panic!("invalid ExternalName {}", name);
                 }
             }
             ir::ExternalName::LibCall(ref libcall) => {
