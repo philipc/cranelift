@@ -4,7 +4,7 @@ use cranelift_codegen::binemit::{Addend, CodeOffset, NullTrapSink, Reloc, RelocS
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::{self, ir, settings};
 use cranelift_module::{
-    Backend, DataContext, DataDescription, DebugContext, Init, Linkage, ModuleNamespace,
+    Backend, DataContext, DataDescription, DebugSectionContext, Init, Linkage, ModuleNamespace,
     ModuleResult,
 };
 use cranelift_native;
@@ -168,7 +168,7 @@ impl<'simple_jit_backend> Backend for SimpleJITBackend {
         // Nothing to do.
     }
 
-    fn declare_debug(&mut self, _name: &str) {
+    fn declare_debug_section(&mut self, _name: &str) {
         unimplemented!();
     }
 
@@ -296,10 +296,10 @@ impl<'simple_jit_backend> Backend for SimpleJITBackend {
         unimplemented!();
     }
 
-    fn define_debug(
+    fn define_debug_section(
         &mut self,
         _name: &str,
-        _debug_ctx: DebugContext,
+        _debug_ctx: DebugSectionContext,
         _namespace: &ModuleNamespace<Self>,
     ) -> ModuleResult<()> {
         unimplemented!();

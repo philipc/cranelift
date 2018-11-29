@@ -1,4 +1,4 @@
-//! Defines `DebugContext`.
+//! Defines `DebugSectionContext`.
 
 use cranelift_codegen::binemit::{Addend, CodeOffset};
 use cranelift_codegen::ir;
@@ -17,14 +17,14 @@ pub struct DebugReloc {
 }
 
 /// The information used to define a debug section.
-pub struct DebugContext {
+pub struct DebugSectionContext {
     /// The section data.
     pub data: Vec<u8>,
     /// Addresses to write at specified offsets.
     pub relocs: Vec<DebugReloc>,
 }
 
-impl DebugContext {
+impl DebugSectionContext {
     /// Allocate a new context.
     pub fn new() -> Self {
         Self {

@@ -5,7 +5,7 @@ use cranelift_codegen::binemit::{Addend, CodeOffset, NullTrapSink, Reloc, RelocS
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::{self, binemit, ir};
 use cranelift_module::{
-    Backend, DataContext, DataDescription, DebugContext, Init, Linkage, ModuleError,
+    Backend, DataContext, DataDescription, DebugSectionContext, Init, Linkage, ModuleError,
     ModuleNamespace, ModuleResult,
 };
 use faerie;
@@ -145,7 +145,7 @@ impl Backend for FaerieBackend {
             .expect("inconsistent declarations");
     }
 
-    fn declare_debug(&mut self, name: &str) {
+    fn declare_debug_section(&mut self, name: &str) {
         self.artifact
             .declare(name, faerie::Decl::DebugSection)
             .expect("inconsistent declarations");
@@ -278,10 +278,10 @@ impl Backend for FaerieBackend {
         unimplemented!()
     }
 
-    fn define_debug(
+    fn define_debug_section(
         &mut self,
         name: &str,
-        debug_ctx: DebugContext,
+        debug_ctx: DebugSectionContext,
         namespace: &ModuleNamespace<Self>,
     ) -> ModuleResult<()> {
         for reloc in debug_ctx.relocs {

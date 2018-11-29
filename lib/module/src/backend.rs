@@ -5,7 +5,7 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::marker;
 use DataContext;
-use DebugContext;
+use DebugSectionContext;
 use Linkage;
 use ModuleNamespace;
 use ModuleResult;
@@ -59,7 +59,7 @@ where
     fn declare_data(&mut self, name: &str, linkage: Linkage, writable: bool);
 
     /// Declare a debug section.
-    fn declare_debug(&mut self, name: &str);
+    fn declare_debug_section(&mut self, name: &str);
 
     /// Define a function, producing the function body from the given `Context`.
     ///
@@ -105,10 +105,10 @@ where
     /// Define a debug section.
     ///
     /// Debug sections must be declared before being defined.
-    fn define_debug(
+    fn define_debug_section(
         &mut self,
         name: &str,
-        debug_ctx: DebugContext,
+        debug_ctx: DebugSectionContext,
         namespace: &ModuleNamespace<Self>,
     ) -> ModuleResult<()>;
 

@@ -47,9 +47,9 @@ mod module;
 
 pub use backend::Backend;
 pub use data_context::{DataContext, DataDescription, Init};
-pub use debug_context::{DebugContext, DebugReloc};
+pub use debug_context::{DebugReloc, DebugSectionContext};
 pub use module::{
-    DataId, DebugId, DebugRelocation, FuncId, FuncOrDataId, Linkage, Module, ModuleError,
+    DataId, DebugRelocation, DebugSectionId, FuncId, FuncOrDataId, Linkage, Module, ModuleError,
     ModuleNamespace, ModuleResult,
 };
 
