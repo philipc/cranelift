@@ -437,6 +437,11 @@ where
         self.backend.isa().frontend_config()
     }
 
+    /// TODO
+    pub fn isa(&self) -> &isa::TargetIsa {
+        self.backend.isa()
+    }
+
     /// Create a new `Context` initialized for use with this `Module`.
     ///
     /// This ensures that the `Context` is initialized with the default calling
