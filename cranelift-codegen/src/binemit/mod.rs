@@ -56,6 +56,14 @@ pub enum Reloc {
     Arm64Call,
     /// RISC-V call target
     RiscvCall,
+
+    /// Elf x86_64 TLS 32 bit signed PC relative offset to two GOT entries for LD symbol.
+    ///
+    /// This requires an addend of -4.
+    ElfX86_64TlsLd,
+
+    /// Elf x86_64 Offset in TLS block.
+    ElfX86_64DtpOff32,
 }
 
 impl fmt::Display for Reloc {
@@ -71,6 +79,9 @@ impl fmt::Display for Reloc {
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
             Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
             Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
+
+            Self::ElfX86_64TlsLd => write!(f, "ElfX86_64TlsLd"),
+            Self::ElfX86_64DtpOff32 => write!(f, "ElfX86_64DtpOff32"),
         }
     }
 }
