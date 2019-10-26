@@ -183,6 +183,7 @@ pub struct DataDeclaration {
     pub name: String,
     pub linkage: Linkage,
     pub writable: bool,
+    pub tls: bool,
     pub align: Option<u8>,
 }
 
@@ -201,10 +202,15 @@ impl<B> ModuleData<B>
 where
     B: Backend,
 {
-    fn merge(&mut self, linkage: Linkage, writable: bool, align: Option<u8>) {
+    fn merge(&mut self, linkage: Linkage, writable: bool, tls: bool, align: Option<u8>) {
         self.decl.linkage = Linkage::merge(self.decl.linkage, linkage);
         self.decl.writable = self.decl.writable || writable;
         self.decl.align = self.decl.align.max(align);
+        assert_eq!(
+            self.decl.tls,
+            tls,
+            "Can't change TLS data object to normal or in the opposite way",
+        );
     }
 }
 
@@ -455,6 +461,7 @@ where
         name: &str,
         linkage: Linkage,
         writable: bool,
+        tls: bool,
         align: Option<u8>, // An alignment bigger than 128 is unlikely
     ) -> ModuleResult<DataId> {
         // TODO: Can we avoid allocating names so often?
@@ -463,12 +470,13 @@ where
             Occupied(entry) => match *entry.get() {
                 FuncOrDataId::Data(id) => {
                     let existing = &mut self.contents.data_objects[id];
-                    existing.merge(linkage, writable, align);
+                    existing.merge(linkage, writable, tls, align);
                     self.backend.declare_data(
                         id,
                         name,
                         existing.decl.linkage,
                         existing.decl.writable,
+                        existing.decl.tls,
                         existing.decl.align,
                     );
                     Ok(id)
@@ -484,13 +492,14 @@ where
                         name: name.to_owned(),
                         linkage,
                         writable,
+                        tls,
                         align,
                     },
                     compiled: None,
                 });
                 entry.insert(FuncOrDataId::Data(id));
                 self.backend
-                    .declare_data(id, name, linkage, writable, align);
+                    .declare_data(id, name, linkage, writable, tls, align);
                 Ok(id)
             }
         }
@@ -521,6 +530,7 @@ where
             name: ir::ExternalName::user(1, data.as_u32()),
             offset: ir::immediates::Imm64::new(0),
             colocated,
+            tls: decl.tls,
         })
     }
 
@@ -587,6 +597,7 @@ where
                 data,
                 &info.decl.name,
                 info.decl.writable,
+                info.decl.tls,
                 info.decl.align,
                 data_ctx,
                 &ModuleNamespace::<B> {

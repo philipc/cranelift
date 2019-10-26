@@ -67,6 +67,7 @@ where
         name: &str,
         linkage: Linkage,
         writable: bool,
+        tls: bool,
         align: Option<u8>,
     );
 
@@ -90,6 +91,7 @@ where
         id: DataId,
         name: &str,
         writable: bool,
+        tls: bool,
         align: Option<u8>,
         data_ctx: &DataContext,
         namespace: &ModuleNamespace<Self>,

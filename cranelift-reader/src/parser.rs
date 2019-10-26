@@ -201,6 +201,7 @@ impl<'a> Context<'a> {
                 name: ExternalName::testcase(""),
                 offset: Imm64::new(0),
                 colocated: false,
+                tls: false,
             });
         }
         self.function.global_values[gv] = data;
@@ -1434,12 +1435,14 @@ impl<'a> Parser<'a> {
             }
             "symbol" => {
                 let colocated = self.optional(Token::Identifier("colocated"));
+                let tls = self.optional(Token::Identifier("tls"));
                 let name = self.parse_external_name()?;
                 let offset = self.optional_offset_imm64()?;
                 GlobalValueData::Symbol {
                     name,
                     offset,
                     colocated,
+                    tls,
                 }
             }
             other => return err!(self.loc, "Unknown global value kind '{}'", other),

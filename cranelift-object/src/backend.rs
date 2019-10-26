@@ -145,12 +145,15 @@ impl Backend for ObjectBackend {
         name: &str,
         linkage: Linkage,
         _writable: bool,
+        tls: bool,
         _align: Option<u8>,
     ) {
+        let kind = if tls { SymbolKind::Tls } else { SymbolKind::Data };
         let (scope, weak) = translate_linkage(linkage);
 
         if let Some(data) = self.data_objects[id] {
             let symbol = self.object.symbol_mut(data);
+            symbol.kind = kind;
             symbol.scope = scope;
             symbol.weak = weak;
         } else {
@@ -158,7 +161,7 @@ impl Backend for ObjectBackend {
                 name: name.as_bytes().to_vec(),
                 value: 0,
                 size: 0,
-                kind: SymbolKind::Data,
+                kind,
                 scope,
                 weak,
                 section: None,
@@ -222,6 +225,7 @@ impl Backend for ObjectBackend {
         data_id: DataId,
         _name: &str,
         writable: bool,
+        _tls: bool,
         align: Option<u8>,
         data_ctx: &DataContext,
         _namespace: &ModuleNamespace<Self>,
