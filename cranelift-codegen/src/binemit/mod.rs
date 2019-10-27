@@ -58,8 +58,6 @@ pub enum Reloc {
     RiscvCall,
 
     /// Elf x86_64 TLS 32 bit signed PC relative offset to two GOT entries for LD symbol.
-    ///
-    /// This requires an addend of -4.
     ElfX86_64TlsLd,
 
     /// Elf x86_64 Offset in TLS block.

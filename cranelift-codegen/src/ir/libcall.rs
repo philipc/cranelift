@@ -47,8 +47,8 @@ pub enum LibCall {
     /// libc.memmove
     Memmove,
 
-    /// Linux __tls_get_addr
-    LinuxTlsGetAddr,
+    /// Elf __tls_get_addr
+    ElfTlsGetAddr,
 }
 
 impl fmt::Display for LibCall {
@@ -75,7 +75,7 @@ impl FromStr for LibCall {
             "Memset" => Ok(Self::Memset),
             "Memmove" => Ok(Self::Memmove),
 
-            "LinuxTlsGetAddr" => Ok(Self::LinuxTlsGetAddr),
+            "ElfTlsGetAddr" => Ok(Self::ElfTlsGetAddr),
             _ => Err(()),
         }
     }

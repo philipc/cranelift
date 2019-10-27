@@ -7,6 +7,7 @@ use crate::cdsl::operands::Operand;
 use crate::cdsl::types::ValueType;
 use crate::cdsl::typevar::{Interval, TypeSetBuilder, TypeVar};
 
+use crate::shared::entities::EntityRefs;
 use crate::shared::formats::Formats;
 use crate::shared::immediates::Immediates;
 use crate::shared::types;
@@ -16,6 +17,7 @@ pub(crate) fn define(
     mut all_instructions: &mut AllInstructions,
     formats: &Formats,
     immediates: &Immediates,
+    entities: &EntityRefs,
 ) -> InstructionGroup {
     let mut ig = InstructionGroupBuilder::new(&mut all_instructions);
 
@@ -485,6 +487,29 @@ pub(crate) fn define(
         )
         .operands_in(vec![x, y])
         .operands_out(vec![f]),
+    );
+
+    let GV = &operand("GV", &entities.global_value);
+    let addr = &operand("addr", iWord);
+
+    ig.push(
+        Inst::new(
+            "x86_elf_tlsld",
+            "FIXME",
+            &formats.unary_global_value,
+        )
+        .operands_in(vec![GV])
+        .operands_out(vec![addr]),
+    );
+
+    ig.push(
+        Inst::new(
+            "x86_elf_dtpoff32",
+            "FIXME",
+            &formats.unary_global_value,
+        )
+        .operands_in(vec![GV])
+        .operands_out(vec![addr]),
     );
 
     ig.build()

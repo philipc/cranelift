@@ -1114,3 +1114,45 @@ fn convert_ineg(
         }
     }
 }
+
+fn expand_tls_value(
+    inst: ir::Inst,
+    func: &mut ir::Function,
+    _cfg: &mut ControlFlowGraph,
+    isa: &dyn TargetIsa,
+) {
+    use crate::isa::CallConv;
+    use crate::ir::{AbiParam, ExternalName, ExtFuncData, LibCall, Signature};
+
+    assert!(
+        isa.triple().architecture == target_lexicon::Architecture::X86_64,
+        "Not yet implemented for {:?}", isa.triple(),
+    );
+
+    let mut pos = FuncCursor::new(func).at_inst(inst);
+    pos.use_srcloc(inst);
+
+    if let ir::InstructionData::UnaryGlobalValue {
+        opcode: ir::Opcode::TlsValue,
+        global_value,
+    } = pos.func.dfg[inst]
+    {
+        let ctrl_typevar = pos.func.dfg.ctrl_typevar(inst);
+        let tls_get_addr_sig = pos.func.import_signature(Signature {
+            params: vec![AbiParam::new(ctrl_typevar)],
+            returns: vec![],
+            call_conv: CallConv::SystemV,
+        });
+        let tls_get_addr = pos.func.import_function(ExtFuncData {
+            name: ExternalName::LibCall(LibCall::ElfTlsGetAddr),
+            signature: tls_get_addr_sig,
+            colocated: false,
+        });
+
+        let tls_index = pos.ins().x86_elf_tlsld(ctrl_typevar, global_value);
+        pos.ins().call(tls_get_addr, &[tls_index]);
+        pos.func.dfg.replace(inst).x86_elf_dtpoff32(ctrl_typevar, global_value);
+    } else {
+        unreachable!();
+    }
+}

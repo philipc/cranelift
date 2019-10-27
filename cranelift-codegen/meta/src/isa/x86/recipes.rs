@@ -3035,9 +3035,83 @@ pub(crate) fn define<'shared>(
     recipes.add_recipe(
         EncodingRecipeBuilder::new("safepoint", &formats.multiary, 0).emit(
             r#"
-            sink.add_stackmap(args, func, isa);
-        "#,
+                sink.add_stackmap(args, func, isa);
+            "#,
         ),
+    );
+
+    /*recipes.add_recipe(
+        EncodingRecipeBuilder::new("tls_value", &formats.unary_global_value, 19)
+            .operands_out(vec![gpr])
+            .emit(
+                r#"
+                    // output %rax
+                    // clobbers %rdi
+
+                    // leaq @tlsld(%rip), %rdi
+                    sink.put1(0x48);
+                    sink.put1(0x8d);
+                    sink.put1(0x3d);
+                    sink.reloc_external(Reloc::ElfX86_64TlsLd,
+                                        &func.global_values[global_value].symbol_name(),
+                                        -4);
+                    sink.put4(0);
+
+                    // callq __tls_get_addr-4
+                    sink.put1(0xe8);
+                    sink.reloc_external(Reloc::X86CallPLTRel4,
+                                        &ExternalName::LibCall(LibCall::ElfTlsGetAddr),
+                                        -4);
+                    sink.put4(0);
+
+                    // leaq @dtpoff32(%rax), %rax
+                    sink.put1(0x48);
+                    sink.put1(0x8d);
+                    sink.put1(0x80);
+                    sink.reloc_external(Reloc::ElfX86_64DtpOff32,
+                                        &func.global_values[global_value].symbol_name(),
+                                        0);
+                    sink.put4(0);
+                "#,
+            ),
+    );*/
+
+    recipes.add_recipe(
+        EncodingRecipeBuilder::new("elf_tlsld", &formats.unary_global_value, 7)
+            .operands_out(vec![gpr])
+            .emit(
+                r#"
+                    // output %rdi
+
+                    // leaq @tlsld(%rip), %rdi
+                    sink.put1(0x48);
+                    sink.put1(0x8d);
+                    sink.put1(0x3d);
+                    sink.reloc_external(Reloc::ElfX86_64TlsLd,
+                                        &func.global_values[global_value].symbol_name(),
+                                        -4);
+                    sink.put4(0);
+                "#,
+            ),
+    );
+
+    recipes.add_recipe(
+        EncodingRecipeBuilder::new("elf_dtpoff32", &formats.unary_global_value, 7)
+            .operands_out(vec![gpr])
+            .emit(
+                r#"
+                    // output %rax
+
+                    // leaq @dtpoff32(%rax), %rax
+                    sink.put1(0x48);
+                    sink.put1(0x8d);
+                    sink.put1(0x80);
+                    sink.reloc_external(Reloc::ElfX86_64DtpOff32,
+                                        &func.global_values[global_value].symbol_name(),
+                                        0);
+                    sink.put4(0);
+                "#,
+            ),
     );
 
     recipes
