@@ -711,6 +711,7 @@ pub fn write_operands(
         FloatCondTrap {
             cond, arg, code, ..
         } => write!(w, " {} {}, {}", cond, arg, code),
+        TlsOffset { global_value, arg, .. } => write!(w, " {}, {}", global_value, arg),
     }
 }
 

@@ -45,6 +45,7 @@ pub(crate) struct Formats {
     pub(crate) store_complex: Rc<InstructionFormat>,
     pub(crate) table_addr: Rc<InstructionFormat>,
     pub(crate) ternary: Rc<InstructionFormat>,
+    pub(crate) tls_offset: Rc<InstructionFormat>,
     pub(crate) trap: Rc<InstructionFormat>,
     pub(crate) unary: Rc<InstructionFormat>,
     pub(crate) unary_bool: Rc<InstructionFormat>,
@@ -77,6 +78,8 @@ impl Formats {
             binary: Builder::new("Binary").value().value().build(),
 
             binary_imm: Builder::new("BinaryImm").value().imm(&imm.imm64).build(),
+
+            tls_offset: Builder::new("TlsOffset").imm(&entities.global_value).value().build(),
 
             // The select instructions are controlled by the second VALUE operand.
             // The first VALUE operand is the controlling flag which has a derived type.

@@ -338,6 +338,7 @@ pub(crate) fn define<'shared>(
     let reg_rax = Register::new(gpr, regs.regunit_by_name(gpr, "rax"));
     let reg_rcx = Register::new(gpr, regs.regunit_by_name(gpr, "rcx"));
     let reg_rdx = Register::new(gpr, regs.regunit_by_name(gpr, "rdx"));
+    let reg_rdi = Register::new(gpr, regs.regunit_by_name(gpr, "rdi"));
     let reg_r15 = Register::new(gpr, regs.regunit_by_name(gpr, "r15"));
 
     // Stack operand with a 32-bit signed displacement from either RBP or RSP.
@@ -3078,15 +3079,15 @@ pub(crate) fn define<'shared>(
 
     recipes.add_recipe(
         EncodingRecipeBuilder::new("elf_tlsld", &formats.unary_global_value, 7)
-            .operands_out(vec![gpr])
+            // FIXME Should use gpr instead of reg_rdi, but that causes an unnecessary regmove instruction.
+            .operands_out(vec![reg_rdi])
             .emit(
                 r#"
-                    // output %rdi
-
                     // leaq @tlsld(%rip), %rdi
-                    sink.put1(0x48);
-                    sink.put1(0x8d);
-                    sink.put1(0x3d);
+                    sink.put1(0b0100_1000);
+                    const LEA: u8 = 0x8d;
+                    sink.put1(LEA);
+                    modrm_riprel(0b111 /*out_reg0*/, sink);
                     sink.reloc_external(Reloc::ElfX86_64TlsLd,
                                         &func.global_values[global_value].symbol_name(),
                                         -4);
@@ -3096,16 +3097,19 @@ pub(crate) fn define<'shared>(
     );
 
     recipes.add_recipe(
-        EncodingRecipeBuilder::new("elf_dtpoff32", &formats.unary_global_value, 7)
-            .operands_out(vec![gpr])
+        EncodingRecipeBuilder::new("elf_dtpoff32", &formats.tls_offset, 7)
+            // FIXME Correct encoding for non rax registers
+            .operands_in(vec![reg_rax])
+            .operands_out(vec![reg_rax])
             .emit(
                 r#"
                     // output %rax
 
                     // leaq @dtpoff32(%rax), %rax
-                    sink.put1(0x48);
-                    sink.put1(0x8d);
-                    sink.put1(0x80);
+                    sink.put1(0b0100_1000);
+                    const LEA: u8 = 0x8d;
+                    sink.put1(LEA);
+                    modrm_disp32(0b000/*in_reg0*/, 0b000/*out_reg0*/, sink);
                     sink.reloc_external(Reloc::ElfX86_64DtpOff32,
                                         &func.global_values[global_value].symbol_name(),
                                         0);
