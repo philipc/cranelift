@@ -123,7 +123,13 @@ fn load_addr(
 }
 
 /// Expand a `global_value` instruction for a symbolic name global.
-fn symbol(inst: ir::Inst, func: &mut ir::Function, gv: ir::GlobalValue, isa: &dyn TargetIsa, tls: bool) {
+fn symbol(
+    inst: ir::Inst,
+    func: &mut ir::Function,
+    gv: ir::GlobalValue,
+    isa: &dyn TargetIsa,
+    tls: bool,
+) {
     let ptr_ty = isa.pointer_type();
 
     if tls {

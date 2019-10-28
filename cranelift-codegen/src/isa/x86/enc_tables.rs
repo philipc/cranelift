@@ -1123,7 +1123,8 @@ fn expand_tls_value(
 ) {
     assert!(
         isa.triple().architecture == target_lexicon::Architecture::X86_64,
-        "Not yet implemented for {:?}", isa.triple(),
+        "Not yet implemented for {:?}",
+        isa.triple(),
     );
 
     if let ir::InstructionData::UnaryGlobalValue {
@@ -1134,7 +1135,11 @@ fn expand_tls_value(
         let ctrl_typevar = func.dfg.ctrl_typevar(inst);
         assert_eq!(ctrl_typevar, ir::types::I64);
 
-        let return_value = match func.dfg.detach_results(inst).as_slice(&func.dfg.value_lists) {
+        let return_value = match func
+            .dfg
+            .detach_results(inst)
+            .as_slice(&func.dfg.value_lists)
+        {
             &[return_value] => return_value,
             _ => unreachable!(),
         };
