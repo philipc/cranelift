@@ -1121,38 +1121,27 @@ fn expand_tls_value(
     _cfg: &mut ControlFlowGraph,
     isa: &dyn TargetIsa,
 ) {
-    use crate::isa::CallConv;
-    use crate::ir::{AbiParam, ArgumentPurpose, ExternalName, ExtFuncData, LibCall, Signature};
-
     assert!(
         isa.triple().architecture == target_lexicon::Architecture::X86_64,
         "Not yet implemented for {:?}", isa.triple(),
     );
 
-    let mut pos = FuncCursor::new(func).at_inst(inst);
-    pos.use_srcloc(inst);
-
     if let ir::InstructionData::UnaryGlobalValue {
         opcode: ir::Opcode::TlsValue,
         global_value,
-    } = pos.func.dfg[inst]
+    } = func.dfg[inst]
     {
-        let ctrl_typevar = pos.func.dfg.ctrl_typevar(inst);
-        let tls_get_addr_sig = pos.func.import_signature(Signature {
-            params: vec![AbiParam::special_reg(ctrl_typevar, ArgumentPurpose::Normal, isa.register_info().parse_regunit("rdi").unwrap())],
-            returns: vec![AbiParam::special_reg(ctrl_typevar, ArgumentPurpose::Normal, isa.register_info().parse_regunit("rax").unwrap())],
-            call_conv: CallConv::SystemV,
-        });
-        let tls_get_addr = pos.func.import_function(ExtFuncData {
-            name: ExternalName::LibCall(LibCall::ElfTlsGetAddr),
-            signature: tls_get_addr_sig,
-            colocated: false,
-        });
+        let ctrl_typevar = func.dfg.ctrl_typevar(inst);
+        assert_eq!(ctrl_typevar, ir::types::I64);
 
-        let tls_index = pos.ins().x86_elf_tlsld(ctrl_typevar, global_value);
-        let tls_addr_inst = pos.ins().call(tls_get_addr, &[tls_index]);
-        let tls_addr = pos.func.dfg.inst_results(tls_addr_inst)[0];
-        pos.func.dfg.replace(inst).x86_elf_dtpoff32(global_value, tls_addr);
+        let return_value = match func.dfg.detach_results(inst).as_slice(&func.dfg.value_lists) {
+            &[return_value] => return_value,
+            _ => unreachable!(),
+        };
+
+        let (tls_addr, _clobber) = func.dfg.replace(inst).x86_elf_tls_gd_get_addr(global_value);
+
+        func.dfg.change_to_alias(return_value, tls_addr);
     } else {
         unreachable!();
     }

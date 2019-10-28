@@ -2769,12 +2769,6 @@ impl<'a> Parser<'a> {
                     code,
                 }
             }
-            InstructionFormat::TlsOffset => {
-                let global_value = self.match_gv("expected global value")?;
-                self.match_token(Token::Comma, "expected ',' between operands")?;
-                let arg = self.match_value("expected pointer value operand")?;
-                InstructionData::TlsOffset { opcode, global_value, arg }
-            }
         };
         Ok(idata)
     }

@@ -983,7 +983,7 @@ pub(crate) fn define(
         Inst::new(
             "tls_value",
             r#"
-        Compute the value of tls GV, which is a symbolic value.
+        Compute the value of global GV, which is a TLS (thread local storage) value.
         "#,
             &formats.unary_global_value,
         )

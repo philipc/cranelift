@@ -3078,41 +3078,35 @@ pub(crate) fn define<'shared>(
     );*/
 
     recipes.add_recipe(
-        EncodingRecipeBuilder::new("elf_tlsld", &formats.unary_global_value, 7)
-            // FIXME Should use gpr instead of reg_rdi, but that causes an unnecessary regmove instruction.
-            .operands_out(vec![reg_rdi])
-            .emit(
-                r#"
-                    // leaq @tlsld(%rip), %rdi
-                    sink.put1(0b0100_1000);
-                    const LEA: u8 = 0x8d;
-                    sink.put1(LEA);
-                    modrm_riprel(0b111 /*out_reg0*/, sink);
-                    sink.reloc_external(Reloc::ElfX86_64TlsLd,
-                                        &func.global_values[global_value].symbol_name(),
-                                        -4);
-                    sink.put4(0);
-                "#,
-            ),
-    );
-
-    recipes.add_recipe(
-        EncodingRecipeBuilder::new("elf_dtpoff32", &formats.tls_offset, 7)
+        EncodingRecipeBuilder::new("elf_tls_gd_get_addr", &formats.unary_global_value, 16)
             // FIXME Correct encoding for non rax registers
-            .operands_in(vec![reg_rax])
-            .operands_out(vec![reg_rax])
+            .operands_out(vec![reg_rax, reg_rdi])
             .emit(
                 r#"
                     // output %rax
+                    // clobbers %rdi
 
-                    // leaq @dtpoff32(%rax), %rax
-                    sink.put1(0b0100_1000);
+                    // Those data16 prefixes are necessary to pad to 16 bytes.
+
+                    // data16 lea gv@tlsgd(%rip),%rdi
+                    sink.put1(0x66); // data16
+                    sink.put1(0b01001000); // rex.w
                     const LEA: u8 = 0x8d;
-                    sink.put1(LEA);
-                    modrm_disp32(0b000/*in_reg0*/, 0b000/*out_reg0*/, sink);
-                    sink.reloc_external(Reloc::ElfX86_64DtpOff32,
+                    sink.put1(LEA); // lea
+                    modrm_riprel(0b111/*out_reg0*/, sink); // 0x3d
+                    sink.reloc_external(Reloc::ElfX86_64TlsGd,
                                         &func.global_values[global_value].symbol_name(),
-                                        0);
+                                        -4);
+                    sink.put4(0);
+
+                    // data16 data16 callq __tls_get_addr-4
+                    sink.put1(0x66); // data16
+                    sink.put1(0x66); // data16
+                    sink.put1(0b01001000); // rex.w
+                    sink.put1(0xe8); // call
+                    sink.reloc_external(Reloc::X86CallPLTRel4,
+                                        &ExternalName::LibCall(LibCall::ElfTlsGetAddr),
+                                        -4);
                     sink.put4(0);
                 "#,
             ),

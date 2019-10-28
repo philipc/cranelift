@@ -509,8 +509,7 @@ pub(crate) fn define(
     let x86_bsf = x86.by_name("x86_bsf");
     let x86_bsr = x86.by_name("x86_bsr");
     let x86_cvtt2si = x86.by_name("x86_cvtt2si");
-    let x86_elf_dtpoff32 = x86.by_name("x86_elf_dtpoff32");
-    let x86_elf_tlsld = x86.by_name("x86_elf_tlsld");
+    let x86_elf_tls_gd_get_addr = x86.by_name("x86_elf_tls_gd_get_addr");
     let x86_fmax = x86.by_name("x86_fmax");
     let x86_fmin = x86.by_name("x86_fmin");
     let x86_insertps = x86.by_name("x86_insertps");
@@ -549,8 +548,7 @@ pub(crate) fn define(
     let rec_copysp = r.template("copysp");
     let rec_div = r.template("div");
     let rec_debugtrap = r.recipe("debugtrap");
-    let rec_elf_dtpoff32 = r.recipe("elf_dtpoff32");
-    let rec_elf_tlsld = r.recipe("elf_tlsld");
+    let rec_elf_tls_gd_get_addr = r.recipe("elf_tls_gd_get_addr");
     let rec_f32imm_z = r.template("f32imm_z");
     let rec_f64imm_z = r.template("f64imm_z");
     let rec_fa = r.template("fa");
@@ -2064,8 +2062,7 @@ pub(crate) fn define(
     e.enc32_rec(safepoint, rec_safepoint, 0);
     e.enc64_rec(safepoint, rec_safepoint, 0);
 
-    e.enc64_rec(x86_elf_tlsld.bind(I64), rec_elf_tlsld, 0);
-    e.enc64_rec(x86_elf_dtpoff32.bind(I64), rec_elf_dtpoff32, 0);
+    e.enc64_rec(x86_elf_tls_gd_get_addr, rec_elf_tls_gd_get_addr, 0);
 
     e
 }

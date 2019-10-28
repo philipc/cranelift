@@ -549,8 +549,7 @@ impl RelocSink for ObjectRelocSink {
             ),
             Reloc::X86GOTPCRel4 => (RelocationKind::GotRelative, RelocationEncoding::Generic, 32),
 
-            Reloc::ElfX86_64TlsLd => (RelocationKind::Other(goblin::elf64::reloc::R_X86_64_TLSLD), RelocationEncoding::Generic, 32),
-            Reloc::ElfX86_64DtpOff32 => (RelocationKind::Other(goblin::elf64::reloc::R_X86_64_DTPOFF32), RelocationEncoding::Generic, 32),
+            Reloc::ElfX86_64TlsGd => (RelocationKind::Other(goblin::elf64::reloc::R_X86_64_TLSGD), RelocationEncoding::Generic, 32),
             // FIXME
             _ => unimplemented!(),
         };
