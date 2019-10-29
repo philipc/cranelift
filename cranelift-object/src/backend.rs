@@ -225,7 +225,7 @@ impl Backend for ObjectBackend {
         data_id: DataId,
         _name: &str,
         writable: bool,
-        _tls: bool,
+        tls: bool,
         align: Option<u8>,
         data_ctx: &DataContext,
         _namespace: &ModuleNamespace<Self>,
@@ -280,7 +280,9 @@ impl Backend for ObjectBackend {
         }
 
         let symbol = self.data_objects[data_id].unwrap();
-        let section = self.object.section_id(if writable {
+        let section = self.object.section_id(if tls {
+            StandardSection::Tls
+        } else if writable {
             StandardSection::Data
         } else if relocs.is_empty() {
             StandardSection::ReadOnlyData
