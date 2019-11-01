@@ -495,9 +495,9 @@ pub(crate) fn define(
         TypeSetBuilder::new().ints(64..64).build(),
     );
 
-    let GV = &operand("GV", &entities.global_value);
-    let addr = &operand("addr", i64_t);
-    let clobber = &operand("clobber", i64_t); // FIXME remove need for this
+    let GV = &Operand::new("GV", &entities.global_value);
+    let addr = &Operand::new("addr", i64_t);
+    let clobber = &Operand::new("clobber", i64_t); // FIXME remove need for this
 
     ig.push(
         Inst::new(
