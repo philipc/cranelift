@@ -33,6 +33,8 @@ pub struct ObjectBuilder {
     collect_traps: ObjectTrapCollection,
     libcall_names: Box<dyn Fn(ir::LibCall) -> String>,
     function_alignment: u64,
+    function_sections: bool,
+    data_sections: bool,
 }
 
 impl ObjectBuilder {
@@ -58,12 +60,26 @@ impl ObjectBuilder {
             collect_traps,
             libcall_names,
             function_alignment: 1,
+            function_sections: true,
+            data_sections: true,
         })
     }
 
     /// Set the alignment used for functions.
     pub fn function_alignment(&mut self, alignment: u64) -> &mut Self {
         self.function_alignment = alignment;
+        self
+    }
+
+    /// Set whether function sections are enabled.
+    pub fn function_sections(&mut self, enable: bool) -> &mut Self {
+        self.function_sections = enable;
+        self
+    }
+
+    /// Set whether data sections are enabled.
+    pub fn data_sections(&mut self, enable: bool) -> &mut Self {
+        self.data_sections = enable;
         self
     }
 }
@@ -81,6 +97,8 @@ pub struct ObjectBackend {
     libcall_names: Box<dyn Fn(ir::LibCall) -> String>,
     collect_traps: ObjectTrapCollection,
     function_alignment: u64,
+    function_sections: bool,
+    data_sections: bool,
 }
 
 impl Backend for ObjectBackend {
@@ -111,6 +129,8 @@ impl Backend for ObjectBackend {
             libcall_names: builder.libcall_names,
             collect_traps: builder.collect_traps,
             function_alignment: builder.function_alignment,
+            function_sections: builder.function_sections,
+            data_sections: builder.data_sections,
         }
     }
 
@@ -173,7 +193,7 @@ impl Backend for ObjectBackend {
     fn define_function(
         &mut self,
         func_id: FuncId,
-        _name: &str,
+        name: &str,
         ctx: &cranelift_codegen::Context,
         _namespace: &ModuleNamespace<Self>,
         code_size: u32,
@@ -206,11 +226,16 @@ impl Backend for ObjectBackend {
             };
         }
 
+        let section = StandardSection::Text;
+        let align = self.function_alignment;
+        let (section, offset) = if self.function_sections {
+            self.object.add_subsection(section, name.as_bytes(), &code, align)
+        } else {
+            let section = self.object.section_id(section);
+            (section, self.object.append_section_data(section, &code, align))
+        };
         let symbol = self.functions[func_id].unwrap();
-        let section = self.object.section_id(StandardSection::Text);
-        let offset = self
-            .object
-            .add_symbol_data(symbol, section, &code, self.function_alignment);
+        self.object.set_symbol_data(symbol, section, offset, code.len() as u64);
         self.traps[func_id] = trap_sink.sites;
         Ok(ObjectCompiledFunction {
             offset,
@@ -223,7 +248,7 @@ impl Backend for ObjectBackend {
     fn define_data(
         &mut self,
         data_id: DataId,
-        _name: &str,
+        name: &str,
         writable: bool,
         tls: bool,
         align: Option<u8>,
@@ -279,8 +304,7 @@ impl Backend for ObjectBackend {
             });
         }
 
-        let symbol = self.data_objects[data_id].unwrap();
-        let section = self.object.section_id(if tls {
+        let section = if tls {
             StandardSection::Tls
         } else if writable {
             StandardSection::Data
@@ -288,10 +312,16 @@ impl Backend for ObjectBackend {
             StandardSection::ReadOnlyData
         } else {
             StandardSection::ReadOnlyDataWithRel
-        });
-        let offset =
-            self.object
-                .add_symbol_data(symbol, section, &data, u64::from(align.unwrap_or(1)));
+        };
+        let align = u64::from(align.unwrap_or(1));
+        let (section, offset) = if self.data_sections {
+            self.object.add_subsection(section, name.as_bytes(), &data, align)
+        } else {
+            let section = self.object.section_id(section);
+            (section, self.object.append_section_data(section, &data, align))
+        };
+        let symbol = self.data_objects[data_id].unwrap();
+        self.object.set_symbol_data(symbol, section, offset, data.len() as u64);
         Ok(ObjectCompiledData {
             offset,
             section,
